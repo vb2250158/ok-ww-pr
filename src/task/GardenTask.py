@@ -49,7 +49,7 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
                         self.click(purple, after_sleep=1)
                     else:
                         self.click(0.5, 0.2, after_sleep=1)
-                    self.click(self.get_box_by_name('garden_get_confirm_gray'), after_sleep=1)
+                    self._click_echo_confirm()
                     continue
                 elif target.name == 'garden_not_interested':
                     not_interested = self.find_feature('garden_not_interested', vertical_variance=0.4)
@@ -117,6 +117,35 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
             if priority_matches:
                 return max(priority_matches, key=lambda box: box.confidence)
         return max(matches, key=lambda box: box.confidence, default=None)
+
+    def _click_echo_confirm(self):
+        """点「声骸选择」页的确认。
+
+        原实现直接拿 garden_get_confirm_gray 的固定坐标去点。固定坐标来自旧版
+        截图，一旦模板匹配不上（选完声骸按钮高亮、或新版本挪了位置），点击就会
+        落在旧位置上，表现成 #1793 里的「选了声骸但确认点不动」，随后整局卡住。
+
+        这里按「模板 → OCR → 固定坐标」兜底：先给按钮动画留时间，再按模板找，
+        找不到就 OCR 右下角找「确认」，最后才回落到原来的固定框；连固定框都拿
+        不到时只记一条日志，避免 None 直接丢给 click 把任务打断。
+        """
+        for _ in range(6):
+            box = self.find_one('garden_get_confirm_gray', horizontal_variance=0.9)
+            if box:
+                self.click(box, after_sleep=1)
+                return
+            self.sleep(0.5)
+        for box in self.ocr(0.45, 0.55, 1.0, 0.98):
+            text = str(getattr(box, 'name', box))
+            if '确认' in text or '確定' in text or 'Confirm' in text:
+                self.click(box, after_sleep=1)
+                return
+        fallback = self.get_box_by_name('garden_get_confirm_gray')
+        if fallback is None:
+            self.log_info('echo confirm button not found, and no fallback box')
+            return
+        self.log_info('echo confirm button not found, fallback to fixed box')
+        self.click(fallback, after_sleep=1)
 
     def _choose_first_blessing(self):
         """At Garden Entrance, choose first blessing"""
