@@ -23,6 +23,7 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
         ]
         self.garden_priority_features = [
             "garden_get_skip",
+            "garden_confirm",
             "garden_not_interested_confirm",
         ]
 
@@ -59,6 +60,13 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
                 elif target.name == 'garden_start_game':
                     # At Garden Entrance, choose blessing1
                     self._choose_first_blessing()
+                elif target.name in ('garden_get_gold', 'garden_get_purple'):
+                    # 2026-11-12 #1793: 3.8 下选完祝福卡后 garden_get_purple 仍在画面上，
+                    # 原来会一直重复点同一张卡、永远走不到 confirm。选一次就点确认。
+                    self.log_info(f"click {target.name} {target.confidence:.3f}")
+                    self.click(target, after_sleep=1)
+                    self._click_echo_confirm()
+                    continue
                 self.log_info(f"click {target.name} {target.confidence:.3f}")
                 self.click(target, after_sleep=1)
             else:
